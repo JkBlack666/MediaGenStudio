@@ -15,6 +15,7 @@ workflow template (video_minimax_h3_t2v.json / video_minimax_h3_i2v.json at
 https://github.com/Comfy-Org/workflow_templates), flattened into the API
 node-graph format ComfyUI's /prompt endpoint expects.
 """
+
 import time
 import uuid
 
@@ -54,43 +55,107 @@ def build_graph(params):
     graph = {
         "119": {"class_type": "VAELoader", "inputs": {"vae_name": v["vae_name"]}},
         "120": {"class_type": "VAELoader", "inputs": {"vae_name": v["audio_vae_name"]}},
-        "127": {"class_type": "UNETLoader", "inputs": {"unet_name": v["unet_name"], "weight_dtype": "default"}},
-        "128": {"class_type": "CLIPLoader", "inputs": {"clip_name": v["clip_name"], "type": "minimax", "device": "default"}},
-        "134": {"class_type": "LoraLoaderModelOnly", "inputs": {
-            "model": ["127", 0], "lora_name": v["lora_name"], "strength_model": 1,
-        }},
-        "131": {"class_type": "MiniMaxH3ImageToVideo", "inputs": {
-            "clip": ["128", 0], "vae": ["119", 0],
-            "prompt": params["prompt"],
-            "width": params["width"], "height": params["height"], "length": params["length"],
-        }},
-        "123": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "res_multistep"}},
-        "124": {"class_type": "BasicScheduler", "inputs": {
-            "model": [model_source, 0], "steps": steps, "scheduler": "simple", "denoise": 1,
-        }},
+        "127": {
+            "class_type": "UNETLoader",
+            "inputs": {"unet_name": v["unet_name"], "weight_dtype": "default"},
+        },
+        "128": {
+            "class_type": "CLIPLoader",
+            "inputs": {
+                "clip_name": v["clip_name"],
+                "type": "minimax",
+                "device": "default",
+            },
+        },
+        "134": {
+            "class_type": "LoraLoaderModelOnly",
+            "inputs": {
+                "model": ["127", 0],
+                "lora_name": v["lora_name"],
+                "strength_model": 1,
+            },
+        },
+        "131": {
+            "class_type": "MiniMaxH3ImageToVideo",
+            "inputs": {
+                "clip": ["128", 0],
+                "vae": ["119", 0],
+                "prompt": params["prompt"],
+                "width": params["width"],
+                "height": params["height"],
+                "length": params["length"],
+            },
+        },
+        "123": {
+            "class_type": "KSamplerSelect",
+            "inputs": {"sampler_name": "res_multistep"},
+        },
+        "124": {
+            "class_type": "BasicScheduler",
+            "inputs": {
+                "model": [model_source, 0],
+                "steps": steps,
+                "scheduler": "simple",
+                "denoise": 1,
+            },
+        },
         "129": {"class_type": "RandomNoise", "inputs": {"noise_seed": params["seed"]}},
-        "126": {"class_type": "BasicGuider", "inputs": {"model": [model_source, 0], "conditioning": ["131", 0]}},
-        "125": {"class_type": "SamplerCustomAdvanced", "inputs": {
-            "noise": ["129", 0], "guider": ["126", 0], "sampler": ["123", 0],
-            "sigmas": ["124", 0], "latent_image": ["131", 1],
-        }},
-        "122": {"class_type": "VAEDecode", "inputs": {"samples": ["125", 0], "vae": ["119", 0]}},
-        "121": {"class_type": "VAEDecodeAudio", "inputs": {"samples": ["125", 0], "vae": ["120", 0]}},
-        "130": {"class_type": "CreateVideo", "inputs": {"images": ["122", 0], "audio": ["121", 0], "fps": 24, "bit_depth": 8}},
-        "92": {"class_type": "SaveVideo", "inputs": {
-            "video": ["130", 0], "filename_prefix": "MediaGenStudio/h3", "format": "auto", "codec": "auto",
-        }},
+        "126": {
+            "class_type": "BasicGuider",
+            "inputs": {"model": [model_source, 0], "conditioning": ["131", 0]},
+        },
+        "125": {
+            "class_type": "SamplerCustomAdvanced",
+            "inputs": {
+                "noise": ["129", 0],
+                "guider": ["126", 0],
+                "sampler": ["123", 0],
+                "sigmas": ["124", 0],
+                "latent_image": ["131", 1],
+            },
+        },
+        "122": {
+            "class_type": "VAEDecode",
+            "inputs": {"samples": ["125", 0], "vae": ["119", 0]},
+        },
+        "121": {
+            "class_type": "VAEDecodeAudio",
+            "inputs": {"samples": ["125", 0], "vae": ["120", 0]},
+        },
+        "130": {
+            "class_type": "CreateVideo",
+            "inputs": {
+                "images": ["122", 0],
+                "audio": ["121", 0],
+                "fps": 24,
+                "bit_depth": 8,
+            },
+        },
+        "92": {
+            "class_type": "SaveVideo",
+            "inputs": {
+                "video": ["130", 0],
+                "filename_prefix": "MediaGenStudio/h3",
+                "format": "auto",
+                "codec": "auto",
+            },
+        },
     }
 
     if params.get("first_frame_name"):
-        graph["_first_frame_load"] = {"class_type": "LoadImage", "inputs": {"image": params["first_frame_name"]}}
+        graph["_first_frame_load"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": params["first_frame_name"]},
+        }
         graph["131"]["inputs"]["first_frame"] = ["_first_frame_load", 0]
 
     return graph
 
 
 def _queue(base_url, graph):
-    resp = requests.post(f"{base_url}/prompt", json={"prompt": graph, "client_id": CLIENT_ID}, timeout=30)
+    resp = requests.post(
+        f"{base_url}/prompt", json={"prompt": graph, "client_id": CLIENT_ID}, timeout=30
+    )
     if not resp.ok:
         try:
             detail = resp.json()
@@ -111,8 +176,12 @@ def _find_video_output(history_entry):
 
 # ~0.4 megapixels per the official workflow's resolution table, multiple-of-32.
 _ASPECT_DIMS = {
-    "16:9": (864, 480), "9:16": (480, 864), "1:1": (656, 656),
-    "4:3": (768, 576), "3:4": (576, 768), "21:9": (992, 416),
+    "16:9": (864, 480),
+    "9:16": (480, 864),
+    "1:1": (656, 656),
+    "4:3": (768, 576),
+    "3:4": (576, 768),
+    "21:9": (992, 416),
 }
 
 
@@ -120,8 +189,19 @@ def aspect_ratio_to_dims(aspect_ratio):
     return _ASPECT_DIMS.get(aspect_ratio, _ASPECT_DIMS["16:9"])
 
 
-def generate(cfg, prompt, image_path=None, duration=6, seed=None, log=None, progress_cb=None,
-             width=None, height=None, aspect_ratio="16:9", timeout_seconds=1800):
+def generate(
+    cfg,
+    prompt,
+    image_path=None,
+    duration=6,
+    seed=None,
+    log=None,
+    progress_cb=None,
+    width=None,
+    height=None,
+    aspect_ratio="16:9",
+    timeout_seconds=1800,
+):
     base_url = _base_url(cfg)
     if not is_reachable(base_url):
         raise RuntimeError(
@@ -139,7 +219,10 @@ def generate(cfg, prompt, image_path=None, duration=6, seed=None, log=None, prog
     length = length + (5 - (length % 17)) % 17  # snap to H3's 17-frame block grid
 
     params = {
-        "prompt": prompt, "width": width, "height": height, "length": length,
+        "prompt": prompt,
+        "width": width,
+        "height": height,
+        "length": length,
         "seed": seed if seed is not None else int(time.time()),
         "video_model_cfg": cfg["video_model"],
     }
@@ -171,8 +254,11 @@ def generate(cfg, prompt, image_path=None, duration=6, seed=None, log=None, prog
                     progress_cb(100, 100)
                 view_resp = requests.get(
                     f"{base_url}/view",
-                    params={"filename": video["filename"], "subfolder": video.get("subfolder", ""),
-                            "type": video.get("type", "output")},
+                    params={
+                        "filename": video["filename"],
+                        "subfolder": video.get("subfolder", ""),
+                        "type": video.get("type", "output"),
+                    },
                     timeout=60,
                 )
                 view_resp.raise_for_status()
@@ -182,4 +268,6 @@ def generate(cfg, prompt, image_path=None, duration=6, seed=None, log=None, prog
         if log:
             log(f"Waiting on ComfyUI ({elapsed}s elapsed)...")
 
-    raise TimeoutError(f"ComfyUI didn't finish the H3 workflow within {timeout_seconds}s.")
+    raise TimeoutError(
+        f"ComfyUI didn't finish the H3 workflow within {timeout_seconds}s."
+    )

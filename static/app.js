@@ -45,7 +45,11 @@ function pollJob(jobId, onUpdate) {
     if (!res.ok) return;
     const job = await res.json();
     onUpdate(job);
-    if (job.status === "done" || job.status === "error" || job.status === "cancelled") {
+    if (
+      job.status === "done" ||
+      job.status === "error" ||
+      job.status === "cancelled"
+    ) {
       clearInterval(interval);
     }
   }, 1500);
@@ -82,7 +86,9 @@ $("#image-form").addEventListener("submit", async (e) => {
     width: Number(fd.get("width")),
     height: Number(fd.get("height")),
     steps: fd.get("steps") ? Number(fd.get("steps")) : null,
-    guidance_scale: fd.get("guidance_scale") ? Number(fd.get("guidance_scale")) : null,
+    guidance_scale: fd.get("guidance_scale")
+      ? Number(fd.get("guidance_scale"))
+      : null,
     seed: fd.get("seed") ? Number(fd.get("seed")) : null,
   };
   submitBtn.disabled = true;
@@ -97,7 +103,8 @@ $("#image-form").addEventListener("submit", async (e) => {
     const job = await res.json();
     pollJob(job.id, (j) => {
       renderResultBox(resultBox, j);
-      if (j.status !== "queued" && j.status !== "running") submitBtn.disabled = false;
+      if (j.status !== "queued" && j.status !== "running")
+        submitBtn.disabled = false;
     });
   } catch (err) {
     resultBox.innerHTML = `<div style="color:var(--err)">${err.message}</div>`;
@@ -115,12 +122,16 @@ $("#video-form").addEventListener("submit", async (e) => {
   submitBtn.disabled = true;
   resultBox.innerHTML = "<div>Queued...</div>";
   try {
-    const res = await fetch("/api/video/generate", { method: "POST", body: fd });
+    const res = await fetch("/api/video/generate", {
+      method: "POST",
+      body: fd,
+    });
     if (!res.ok) throw new Error(await res.text());
     const job = await res.json();
     pollJob(job.id, (j) => {
       renderResultBox(resultBox, j);
-      if (j.status !== "queued" && j.status !== "running") submitBtn.disabled = false;
+      if (j.status !== "queued" && j.status !== "running")
+        submitBtn.disabled = false;
     });
   } catch (err) {
     resultBox.innerHTML = `<div style="color:var(--err)">${err.message}</div>`;
@@ -138,15 +149,17 @@ async function loadJobs() {
     list.innerHTML = "<p>No jobs yet.</p>";
     return;
   }
-  list.innerHTML = jobsData.map((j) => {
-    const date = new Date(j.created_at * 1000).toLocaleString();
-    let preview = "";
-    if (j.status === "done" && j.result) {
-      preview = j.result.type === "image"
-        ? `<img src="${j.result.url}" style="max-width:200px" />`
-        : `<video src="${j.result.url}" style="max-width:200px" controls></video>`;
-    }
-    return `<div class="job-card">
+  list.innerHTML = jobsData
+    .map((j) => {
+      const date = new Date(j.created_at * 1000).toLocaleString();
+      let preview = "";
+      if (j.status === "done" && j.result) {
+        preview =
+          j.result.type === "image"
+            ? `<img src="${j.result.url}" style="max-width:200px" />`
+            : `<video src="${j.result.url}" style="max-width:200px" controls></video>`;
+      }
+      return `<div class="job-card">
       <div class="job-head">
         <span>${j.kind} · ${date}</span>
         <span class="status-pill status-${j.status}">${j.status}</span>
@@ -154,7 +167,8 @@ async function loadJobs() {
       <div>${(j.params.prompt || "").slice(0, 140)}</div>
       ${preview}
     </div>`;
-  }).join("");
+    })
+    .join("");
 }
 $("#refresh-jobs").addEventListener("click", loadJobs);
 
@@ -163,9 +177,11 @@ async function loadSettings() {
   const res = await fetch("/api/config");
   const cfg = await res.json();
   const form = $("#settings-form");
-  form.image_repo_id.value = cfg.image_model.local_path || cfg.image_model.repo_id;
+  form.image_repo_id.value =
+    cfg.image_model.local_path || cfg.image_model.repo_id;
   form.image_offload.value = cfg.image_model.offload;
-  form.video_repo_id.value = cfg.video_model.local_path || cfg.video_model.repo_id;
+  form.video_repo_id.value =
+    cfg.video_model.local_path || cfg.video_model.repo_id;
   form.video_variant.value = cfg.video_model.variant;
   form.video_backend.value = cfg.video_model.backend;
   form.comfyui_url.value = cfg.video_model.comfyui_url || "";
@@ -185,11 +201,20 @@ $("#settings-form").addEventListener("submit", async (e) => {
   const fd = new FormData(e.target);
   const payload = {
     hf_token: fd.get("hf_token") || "",
-    image_model: { repo_id: fd.get("image_repo_id"), offload: fd.get("image_offload") },
+    image_model: {
+      repo_id: fd.get("image_repo_id"),
+      offload: fd.get("image_offload"),
+    },
     video_model: {
-      repo_id: fd.get("video_repo_id"), variant: fd.get("video_variant"), backend: fd.get("video_backend"),
-      comfyui_url: fd.get("comfyui_url"), unet_name: fd.get("unet_name"), clip_name: fd.get("clip_name"),
-      vae_name: fd.get("vae_name"), audio_vae_name: fd.get("audio_vae_name"), lora_name: fd.get("lora_name"),
+      repo_id: fd.get("video_repo_id"),
+      variant: fd.get("video_variant"),
+      backend: fd.get("video_backend"),
+      comfyui_url: fd.get("comfyui_url"),
+      unet_name: fd.get("unet_name"),
+      clip_name: fd.get("clip_name"),
+      vae_name: fd.get("vae_name"),
+      audio_vae_name: fd.get("audio_vae_name"),
+      lora_name: fd.get("lora_name"),
       turbo: fd.get("turbo") === "on",
     },
     minimax_api: { base_url: fd.get("minimax_base_url") },

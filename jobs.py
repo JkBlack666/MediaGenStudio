@@ -4,6 +4,7 @@ Jobs are persisted to data/jobs.json so history survives server restarts.
 Params blobs are kept small (no raw image bytes) - uploaded reference images
 are saved to disk and only their paths are stored in the job record.
 """
+
 import json
 import threading
 import queue
@@ -39,7 +40,9 @@ _jobs = _load()
 
 
 def _save():
-    JOBS_FILE.write_text(json.dumps(_jobs, indent=2, ensure_ascii=False), encoding="utf-8")
+    JOBS_FILE.write_text(
+        json.dumps(_jobs, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
 
 def create_job(kind, params):
@@ -105,7 +108,11 @@ def _worker_loop():
             continue
         fn = _workers.get(job["kind"])
         if not fn:
-            update_job(job_id, status="error", message=f"No worker registered for '{job['kind']}'")
+            update_job(
+                job_id,
+                status="error",
+                message=f"No worker registered for '{job['kind']}'",
+            )
             continue
         update_job(job_id, status="running", message="Starting generation...")
         try:

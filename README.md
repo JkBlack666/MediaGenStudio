@@ -159,9 +159,23 @@ az login   # sign in with the Azure account that should own the resources
 ```
 
 Optional parameters: `-ResourceGroup`, `-Location`, `-WebAppName`, `-Sku` (e.g.
-`-Sku B1` for the cheapest *paid* tier - has "Always On" so the background job
+`-Sku B1` for the cheapest _paid_ tier - has "Always On" so the background job
 worker doesn't get recycled during idle periods, unlike F1 which can unload the
 app after ~20 minutes of no traffic).
 
-To tear everything down: `az group delete --name mediagenstudio-rg --yes --no-wait`.
+**Region matters on restricted subscriptions.** Visual Studio/MSDN subscriptions
+with an active spending limit often default to 0 App Service quota in most
+regions - `eastus` and `westus2` both failed here with "Operation cannot be
+completed without additional quota" (for both F1 and B1). `westeurope` worked
+(confirmed by an existing App Service already running successfully there on
+the same subscription) and is the script's default. If your deployment hits
+the same quota error, either try another region or request a quota increase /
+remove the spending limit in the Azure Portal.
 
+Deployed and verified live at **https://mediagenstudio-1160.azurewebsites.net**
+(resource group `mediagenstudio-rg`, region `westeurope`) - confirmed the GUI,
+static assets, `/api/status`, `/api/config`, and the job queue/background
+worker (submit -> process -> clean error message) all work end-to-end on the
+real deployment, not just locally.
+
+To tear everything down: `az group delete --name mediagenstudio-rg --yes --no-wait`.

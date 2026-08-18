@@ -10,6 +10,7 @@ Two backends:
     against your MiniMax account's API docs (platform.minimax.io) since this
     is not independently verified end-to-end here.
 """
+
 import base64
 import os
 import threading
@@ -75,8 +76,10 @@ def _load_pipeline(cfg, log=None):
         model_path = v.get("local_path") or v["repo_id"]
         token = cfg.get("hf_token") or None
         if log:
-            log(f"Loading MiniMax-H3 ({v.get('variant')}) from '{model_path}'. "
-                f"This is a 33B model - expect a very large download and multi-GPU memory needs.")
+            log(
+                f"Loading MiniMax-H3 ({v.get('variant')}) from '{model_path}'. "
+                f"This is a 33B model - expect a very large download and multi-GPU memory needs."
+            )
         try:
             pipe = ModularPipeline.from_pretrained(model_path, token=token)
         except Exception as exc:
@@ -86,8 +89,12 @@ def _load_pipeline(cfg, log=None):
         return pipe
 
 
-def generate_local(cfg, prompt, image=None, duration=6, seed=None, log=None, progress_cb=None):
-    pipe = _load_pipeline(cfg, log=log)  # raises a clear RuntimeError if diffusers is missing/too old
+def generate_local(
+    cfg, prompt, image=None, duration=6, seed=None, log=None, progress_cb=None
+):
+    pipe = _load_pipeline(
+        cfg, log=log
+    )  # raises a clear RuntimeError if diffusers is missing/too old
     import torch
 
     generator = torch.Generator(device="cpu")
@@ -105,8 +112,16 @@ def generate_local(cfg, prompt, image=None, duration=6, seed=None, log=None, pro
     return output
 
 
-def generate_via_api(cfg, prompt, image_b64=None, duration=6, aspect_ratio="16:9",
-                      seed=None, log=None, progress_cb=None):
+def generate_via_api(
+    cfg,
+    prompt,
+    image_b64=None,
+    duration=6,
+    aspect_ratio="16:9",
+    seed=None,
+    log=None,
+    progress_cb=None,
+):
     api_cfg = cfg["minimax_api"]
     api_key = os.environ.get(api_cfg.get("api_key_env", "MINIMAX_API_KEY"), "").strip()
     if not api_key:
@@ -131,8 +146,12 @@ def generate_via_api(cfg, prompt, image_b64=None, duration=6, aspect_ratio="16:9
 
     if log:
         log("Submitting job to MiniMax hosted API (video-generation-v2-create)...")
-    resp = requests.post(f"{base_url}/v1/video-generation-v2-create", json=payload,
-                          headers=headers, timeout=60)
+    resp = requests.post(
+        f"{base_url}/v1/video-generation-v2-create",
+        json=payload,
+        headers=headers,
+        timeout=60,
+    )
     resp.raise_for_status()
     data = resp.json()
     base_resp = data.get("base_resp", {})
@@ -150,7 +169,9 @@ def generate_via_api(cfg, prompt, image_b64=None, duration=6, aspect_ratio="16:9
         time.sleep(5)
         status_resp = requests.get(
             f"{base_url}/v1/query/video-generation-v2",
-            params={"task_id": task_id}, headers=headers, timeout=30,
+            params={"task_id": task_id},
+            headers=headers,
+            timeout=30,
         )
         status_resp.raise_for_status()
         status = status_resp.json()
@@ -160,8 +181,10 @@ def generate_via_api(cfg, prompt, image_b64=None, duration=6, aspect_ratio="16:9
         if state == "Success":
             file_id = status.get("file_id")
             file_resp = requests.get(
-                f"{base_url}/v1/files/retrieve", params={"file_id": file_id},
-                headers=headers, timeout=30,
+                f"{base_url}/v1/files/retrieve",
+                params={"file_id": file_id},
+                headers=headers,
+                timeout=30,
             )
             file_resp.raise_for_status()
             return file_resp.json()["file"]["download_url"]

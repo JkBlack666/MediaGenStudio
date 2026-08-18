@@ -1,182 +1,328 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MediaGenStudio — Krea + MiniMax H3</title>
-  <link rel="stylesheet" href="/static/style.css" />
-</head>
-<body>
-  <header class="topbar">
-    <h1>MediaGenStudio</h1>
-    <span class="subtitle">Local Krea (image) + MiniMax-H3 (video) generation</span>
-    <span id="gpu-badge" class="badge">checking GPU...</span>
-  </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MediaGenStudio — Krea + MiniMax H3</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>MediaGenStudio</h1>
+      <span class="subtitle"
+        >Local Krea (image) + MiniMax-H3 (video) generation</span
+      >
+      <span id="gpu-badge" class="badge">checking GPU...</span>
+    </header>
 
-  <nav class="tabs">
-    <button class="tab-btn active" data-tab="image">Image (Krea)</button>
-    <button class="tab-btn" data-tab="video">Video (MiniMax H3)</button>
-    <button class="tab-btn" data-tab="jobs">Jobs</button>
-    <button class="tab-btn" data-tab="settings">Settings</button>
-  </nav>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="image">Image (Krea)</button>
+      <button class="tab-btn" data-tab="video">Video (MiniMax H3)</button>
+      <button class="tab-btn" data-tab="jobs">Jobs</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </nav>
 
-  <main>
-    <section id="tab-image" class="tab-panel active">
-      <h2>Text → Image (Krea 2)</h2>
-      <p class="hint">Default checkpoint is <code>krea/Krea-2-Turbo</code> (8 steps, no guidance).
-        Switch to <code>krea/Krea-2-Raw</code> in Settings for the higher-quality, slower base checkpoint
-        (52 steps, guidance 3.5), or point at <code>black-forest-labs/FLUX.1-Krea-dev</code> for the FLUX-based model instead.</p>
-      <form id="image-form">
-        <label>Prompt
-          <textarea name="prompt" rows="3" placeholder="A frog holding a sign that says hello world" required></textarea>
-        </label>
-        <label>Negative prompt (optional)
-          <input type="text" name="negative_prompt" />
-        </label>
-        <div class="row">
-          <label>Width <input type="number" name="width" value="1024" step="64" /></label>
-          <label>Height <input type="number" name="height" value="1024" step="64" /></label>
-          <label>Steps <input type="number" name="steps" placeholder="auto (checkpoint default)" /></label>
-          <label>Guidance <input type="number" name="guidance_scale" placeholder="auto" step="0.1" /></label>
-          <label>Seed <input type="number" name="seed" placeholder="random" /></label>
-        </div>
-        <button type="submit">Generate Image</button>
-      </form>
-      <div id="image-result" class="result"></div>
-    </section>
-
-    <section id="tab-video" class="tab-panel">
-      <h2>Text/Image → Video+Audio (MiniMax-H3)</h2>
-      <p class="hint">Default backend runs H3 100% locally through a ComfyUI server on your machine/GPU
-        (no cloud API call) - install ComfyUI + the model files first (see README/Settings).
-        MiniMax's hosted API is available as a non-local fallback if you don't have a GPU set up.
-        (Local <code>diffusers</code> execution for H3 doesn't exist in any public diffusers release yet.)</p>
-      <form id="video-form">
-        <label>Prompt
-          <textarea name="prompt" rows="3" placeholder="Describe the shot, camera motion, subject, style..." required></textarea>
-        </label>
-        <div class="row">
-          <label>Duration (sec) <input type="number" name="duration" value="6" min="1" max="15" /></label>
-          <label>Aspect ratio
-            <select name="aspect_ratio">
-              <option>16:9</option>
-              <option>9:16</option>
-              <option>1:1</option>
-              <option>4:3</option>
-              <option>3:4</option>
-              <option>21:9</option>
-            </select>
+    <main>
+      <section id="tab-image" class="tab-panel active">
+        <h2>Text → Image (Krea 2)</h2>
+        <p class="hint">
+          Default checkpoint is <code>krea/Krea-2-Turbo</code> (8 steps, no
+          guidance). Switch to <code>krea/Krea-2-Raw</code> in Settings for the
+          higher-quality, slower base checkpoint (52 steps, guidance 3.5), or
+          point at <code>black-forest-labs/FLUX.1-Krea-dev</code> for the
+          FLUX-based model instead.
+        </p>
+        <form id="image-form">
+          <label
+            >Prompt
+            <textarea
+              name="prompt"
+              rows="3"
+              placeholder="A frog holding a sign that says hello world"
+              required
+            ></textarea>
           </label>
-          <label>Seed <input type="number" name="seed" placeholder="random" /></label>
-          <label>Backend
-            <select name="backend">
-              <option value="comfyui">Local ComfyUI (default - runs on your GPU)</option>
-              <option value="api">MiniMax cloud API (fallback, not local)</option>
-              <option value="diffusers">Local diffusers (currently unsupported)</option>
-            </select>
-          </label>
-        </div>
-        <label>Reference image (optional first frame)
-          <input type="file" name="image" accept="image/*" />
-        </label>
-        <button type="submit">Generate Video</button>
-      </form>
-      <div id="video-result" class="result"></div>
-    </section>
-
-    <section id="tab-jobs" class="tab-panel">
-      <h2>Job History</h2>
-      <button id="refresh-jobs">Refresh</button>
-      <div id="jobs-list"></div>
-    </section>
-
-    <section id="tab-settings" class="tab-panel">
-      <h2>Settings</h2>
-      <form id="settings-form">
-        <fieldset>
-          <legend>Image model (Krea 2 / FLUX)</legend>
-          <label>Repo ID or local path
-            <input type="text" name="image_repo_id" placeholder="krea/Krea-2-Turbo, krea/Krea-2-Raw, or black-forest-labs/FLUX.1-Krea-dev" />
-          </label>
-          <label>Offload mode
-            <select name="image_offload">
-              <option value="auto">auto (recommended - picks based on your hardware)</option>
-              <option value="none">none (full device memory, needs most VRAM/RAM)</option>
-              <option value="model">model (GPU only - offload idle layers to CPU)</option>
-              <option value="sequential">sequential (GPU only - lowest VRAM, slowest)</option>
-            </select>
-          </label>
-        </fieldset>
-        <fieldset>
-          <legend>Video model (MiniMax H3)</legend>
-          <label>Repo ID or local path
-            <input type="text" name="video_repo_id" />
-          </label>
-          <label>Variant
-            <select name="video_variant">
-              <option value="FL2VA">FL2VA (text / first-last-frame)</option>
-              <option value="Ref2VA">Ref2VA (multimodal reference)</option>
-            </select>
-          </label>
-          <label>Default backend
-            <select name="video_backend">
-              <option value="comfyui">comfyui (local, default)</option>
-              <option value="api">api (cloud fallback)</option>
-              <option value="diffusers">diffusers (currently unsupported)</option>
-            </select>
-          </label>
-        </fieldset>
-        <fieldset>
-          <legend>ComfyUI (used by comfyui backend - genuinely local, runs on your GPU)</legend>
-          <p class="hint">Install <a href="https://github.com/comfyanonymous/ComfyUI" target="_blank" rel="noopener">ComfyUI</a>,
-            download the model files listed on
-            <a href="https://huggingface.co/Comfy-Org/MiniMax-H3" target="_blank" rel="noopener">Comfy-Org/MiniMax-H3</a>
-            into ComfyUI's models folders, then start ComfyUI (<code>python main.py</code>) before generating video.</p>
-          <label>ComfyUI server URL
-            <input type="text" name="comfyui_url" placeholder="http://127.0.0.1:8188" />
+          <label
+            >Negative prompt (optional)
+            <input type="text" name="negative_prompt" />
           </label>
           <div class="row">
-            <label>UNET (diffusion model) filename <input type="text" name="unet_name" /></label>
-            <label>CLIP (text encoder) filename <input type="text" name="clip_name" /></label>
+            <label
+              >Width <input type="number" name="width" value="1024" step="64"
+            /></label>
+            <label
+              >Height <input type="number" name="height" value="1024" step="64"
+            /></label>
+            <label
+              >Steps
+              <input
+                type="number"
+                name="steps"
+                placeholder="auto (checkpoint default)"
+            /></label>
+            <label
+              >Guidance
+              <input
+                type="number"
+                name="guidance_scale"
+                placeholder="auto"
+                step="0.1"
+            /></label>
+            <label
+              >Seed <input type="number" name="seed" placeholder="random"
+            /></label>
           </div>
-          <div class="row">
-            <label>Video VAE filename <input type="text" name="vae_name" /></label>
-            <label>Audio VAE filename <input type="text" name="audio_vae_name" /></label>
-          </div>
-          <label>Turbo LoRA filename (speeds up generation) <input type="text" name="lora_name" /></label>
-          <label><input type="checkbox" name="turbo" style="width:auto" /> Use turbo LoRA (fewer steps, faster)</label>
-        </fieldset>
-        <fieldset>
-          <legend>MiniMax API (used by API backend)</legend>
-          <label>Base URL
-            <input type="text" name="minimax_base_url" />
-          </label>
-          <p class="hint">API key is read from the <code>MINIMAX_API_KEY</code> environment variable, not stored here.
-            Sign up and get a key at <a href="https://platform.minimax.io" target="_blank" rel="noopener">platform.minimax.io</a>.</p>
-        </fieldset>
-        <fieldset>
-          <legend>Hugging Face account (required for Krea + H3 weights)</legend>
-          <p class="hint">
-            Both models are gated. Steps (one-time, needs your own free account - an
-            agent can't do this for you):
-            1) Sign in at <a href="https://huggingface.co" target="_blank" rel="noopener">huggingface.co</a>.
-            2) Click "Agree and access repository" on
-            <a href="https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev" target="_blank" rel="noopener">FLUX.1-Krea-dev</a>
-            and <a href="https://huggingface.co/MiniMaxAI/MiniMax-H3" target="_blank" rel="noopener">MiniMax-H3</a>.
-            3) Create a read token at
-            <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">huggingface.co/settings/tokens</a>
-            and paste it below.
-          </p>
-          <label>Hugging Face token
-            <input type="password" name="hf_token" placeholder="hf_..." autocomplete="off" />
-          </label>
-        </fieldset>
-        <button type="submit">Save Settings</button>
-      </form>
-      <div id="settings-status"></div>
-    </section>
-  </main>
+          <button type="submit">Generate Image</button>
+        </form>
+        <div id="image-result" class="result"></div>
+      </section>
 
-  <script src="/static/app.js"></script>
-</body>
+      <section id="tab-video" class="tab-panel">
+        <h2>Text/Image → Video+Audio (MiniMax-H3)</h2>
+        <p class="hint">
+          Default backend runs H3 100% locally through a ComfyUI server on your
+          machine/GPU (no cloud API call) - install ComfyUI + the model files
+          first (see README/Settings). MiniMax's hosted API is available as a
+          non-local fallback if you don't have a GPU set up. (Local
+          <code>diffusers</code> execution for H3 doesn't exist in any public
+          diffusers release yet.)
+        </p>
+        <form id="video-form">
+          <label
+            >Prompt
+            <textarea
+              name="prompt"
+              rows="3"
+              placeholder="Describe the shot, camera motion, subject, style..."
+              required
+            ></textarea>
+          </label>
+          <div class="row">
+            <label
+              >Duration (sec)
+              <input type="number" name="duration" value="6" min="1" max="15"
+            /></label>
+            <label
+              >Aspect ratio
+              <select name="aspect_ratio">
+                <option>16:9</option>
+                <option>9:16</option>
+                <option>1:1</option>
+                <option>4:3</option>
+                <option>3:4</option>
+                <option>21:9</option>
+              </select>
+            </label>
+            <label
+              >Seed <input type="number" name="seed" placeholder="random"
+            /></label>
+            <label
+              >Backend
+              <select name="backend">
+                <option value="comfyui">
+                  Local ComfyUI (default - runs on your GPU)
+                </option>
+                <option value="api">
+                  MiniMax cloud API (fallback, not local)
+                </option>
+                <option value="diffusers">
+                  Local diffusers (currently unsupported)
+                </option>
+              </select>
+            </label>
+          </div>
+          <label
+            >Reference image (optional first frame)
+            <input type="file" name="image" accept="image/*" />
+          </label>
+          <button type="submit">Generate Video</button>
+        </form>
+        <div id="video-result" class="result"></div>
+      </section>
+
+      <section id="tab-jobs" class="tab-panel">
+        <h2>Job History</h2>
+        <button id="refresh-jobs">Refresh</button>
+        <div id="jobs-list"></div>
+      </section>
+
+      <section id="tab-settings" class="tab-panel">
+        <h2>Settings</h2>
+        <form id="settings-form">
+          <fieldset>
+            <legend>Image model (Krea 2 / FLUX)</legend>
+            <label
+              >Repo ID or local path
+              <input
+                type="text"
+                name="image_repo_id"
+                placeholder="krea/Krea-2-Turbo, krea/Krea-2-Raw, or black-forest-labs/FLUX.1-Krea-dev"
+              />
+            </label>
+            <label
+              >Offload mode
+              <select name="image_offload">
+                <option value="auto">
+                  auto (recommended - picks based on your hardware)
+                </option>
+                <option value="none">
+                  none (full device memory, needs most VRAM/RAM)
+                </option>
+                <option value="model">
+                  model (GPU only - offload idle layers to CPU)
+                </option>
+                <option value="sequential">
+                  sequential (GPU only - lowest VRAM, slowest)
+                </option>
+              </select>
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend>Video model (MiniMax H3)</legend>
+            <label
+              >Repo ID or local path
+              <input type="text" name="video_repo_id" />
+            </label>
+            <label
+              >Variant
+              <select name="video_variant">
+                <option value="FL2VA">FL2VA (text / first-last-frame)</option>
+                <option value="Ref2VA">Ref2VA (multimodal reference)</option>
+              </select>
+            </label>
+            <label
+              >Default backend
+              <select name="video_backend">
+                <option value="comfyui">comfyui (local, default)</option>
+                <option value="api">api (cloud fallback)</option>
+                <option value="diffusers">
+                  diffusers (currently unsupported)
+                </option>
+              </select>
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend>
+              ComfyUI (used by comfyui backend - genuinely local, runs on your
+              GPU)
+            </legend>
+            <p class="hint">
+              Install
+              <a
+                href="https://github.com/comfyanonymous/ComfyUI"
+                target="_blank"
+                rel="noopener"
+                >ComfyUI</a
+              >, download the model files listed on
+              <a
+                href="https://huggingface.co/Comfy-Org/MiniMax-H3"
+                target="_blank"
+                rel="noopener"
+                >Comfy-Org/MiniMax-H3</a
+              >
+              into ComfyUI's models folders, then start ComfyUI (<code
+                >python main.py</code
+              >) before generating video.
+            </p>
+            <label
+              >ComfyUI server URL
+              <input
+                type="text"
+                name="comfyui_url"
+                placeholder="http://127.0.0.1:8188"
+              />
+            </label>
+            <div class="row">
+              <label
+                >UNET (diffusion model) filename
+                <input type="text" name="unet_name"
+              /></label>
+              <label
+                >CLIP (text encoder) filename
+                <input type="text" name="clip_name"
+              /></label>
+            </div>
+            <div class="row">
+              <label
+                >Video VAE filename <input type="text" name="vae_name"
+              /></label>
+              <label
+                >Audio VAE filename <input type="text" name="audio_vae_name"
+              /></label>
+            </div>
+            <label
+              >Turbo LoRA filename (speeds up generation)
+              <input type="text" name="lora_name"
+            /></label>
+            <label
+              ><input type="checkbox" name="turbo" style="width: auto" /> Use
+              turbo LoRA (fewer steps, faster)</label
+            >
+          </fieldset>
+          <fieldset>
+            <legend>MiniMax API (used by API backend)</legend>
+            <label
+              >Base URL
+              <input type="text" name="minimax_base_url" />
+            </label>
+            <p class="hint">
+              API key is read from the <code>MINIMAX_API_KEY</code> environment
+              variable, not stored here. Sign up and get a key at
+              <a
+                href="https://platform.minimax.io"
+                target="_blank"
+                rel="noopener"
+                >platform.minimax.io</a
+              >.
+            </p>
+          </fieldset>
+          <fieldset>
+            <legend>
+              Hugging Face account (required for Krea + H3 weights)
+            </legend>
+            <p class="hint">
+              Both models are gated. Steps (one-time, needs your own free
+              account - an agent can't do this for you): 1) Sign in at
+              <a href="https://huggingface.co" target="_blank" rel="noopener"
+                >huggingface.co</a
+              >. 2) Click "Agree and access repository" on
+              <a
+                href="https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev"
+                target="_blank"
+                rel="noopener"
+                >FLUX.1-Krea-dev</a
+              >
+              and
+              <a
+                href="https://huggingface.co/MiniMaxAI/MiniMax-H3"
+                target="_blank"
+                rel="noopener"
+                >MiniMax-H3</a
+              >. 3) Create a read token at
+              <a
+                href="https://huggingface.co/settings/tokens"
+                target="_blank"
+                rel="noopener"
+                >huggingface.co/settings/tokens</a
+              >
+              and paste it below.
+            </p>
+            <label
+              >Hugging Face token
+              <input
+                type="password"
+                name="hf_token"
+                placeholder="hf_..."
+                autocomplete="off"
+              />
+            </label>
+          </fieldset>
+          <button type="submit">Save Settings</button>
+        </form>
+        <div id="settings-status"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
 </html>

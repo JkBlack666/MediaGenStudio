@@ -11,6 +11,7 @@ Supports two distinct model families:
 Torch/diffusers are imported lazily so the server can still start (and show a
 clear error in the GUI) on machines without those installed/CUDA available.
 """
+
 import threading
 
 import config as config_module
@@ -31,7 +32,12 @@ def _is_turbo(model_path):
 def _pipeline_key(full_cfg):
     img = full_cfg["image_model"]
     hw = config_module.resolve_hardware(full_cfg)
-    return (img.get("local_path") or img.get("repo_id"), hw["offload"], hw["device"], hw["dtype_name"])
+    return (
+        img.get("local_path") or img.get("repo_id"),
+        hw["offload"],
+        hw["device"],
+        hw["dtype_name"],
+    )
 
 
 def is_loaded(full_cfg):
@@ -70,7 +76,11 @@ def _load_pipeline(full_cfg, log=None):
             return _pipeline
         try:
             import torch
-            if _is_krea2(full_cfg["image_model"].get("local_path") or full_cfg["image_model"]["repo_id"]):
+
+            if _is_krea2(
+                full_cfg["image_model"].get("local_path")
+                or full_cfg["image_model"]["repo_id"]
+            ):
                 from diffusers import Krea2Pipeline as PipelineClass
             else:
                 from diffusers import FluxPipeline as PipelineClass
@@ -87,10 +97,14 @@ def _load_pipeline(full_cfg, log=None):
         dtype = getattr(torch, hw["dtype_name"], torch.float32)
 
         if log:
-            log(f"Loading '{model_path}' ({PipelineClass.__name__}) on {hw['device']} "
-                f"({hw['dtype_name']}). First load downloads several GB+ and can take a while.")
+            log(
+                f"Loading '{model_path}' ({PipelineClass.__name__}) on {hw['device']} "
+                f"({hw['dtype_name']}). First load downloads several GB+ and can take a while."
+            )
         try:
-            pipe = PipelineClass.from_pretrained(model_path, torch_dtype=dtype, token=token)
+            pipe = PipelineClass.from_pretrained(
+                model_path, torch_dtype=dtype, token=token
+            )
         except Exception as exc:
             raise _friendly_error(exc, model_path) from exc
 
@@ -106,9 +120,21 @@ def _load_pipeline(full_cfg, log=None):
         return pipe
 
 
-def generate(full_cfg, prompt, negative_prompt=None, width=1024, height=1024,
-             steps=None, guidance_scale=None, seed=None, progress_cb=None, log=None):
-    pipe = _load_pipeline(full_cfg, log=log)  # raises a clear RuntimeError if torch/diffusers/auth are missing
+def generate(
+    full_cfg,
+    prompt,
+    negative_prompt=None,
+    width=1024,
+    height=1024,
+    steps=None,
+    guidance_scale=None,
+    seed=None,
+    progress_cb=None,
+    log=None,
+):
+    pipe = _load_pipeline(
+        full_cfg, log=log
+    )  # raises a clear RuntimeError if torch/diffusers/auth are missing
     import torch
 
     img = full_cfg["image_model"]

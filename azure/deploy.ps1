@@ -11,7 +11,11 @@
 #>
 param(
     [string]$ResourceGroup = "mediagenstudio-rg",
-    [string]$Location = "eastus",
+    # westeurope confirmed to have Linux App Service quota on this subscription
+    # (eastus/westus2 returned "0 quota" for Free/Basic Linux plans - common on
+    # Visual Studio / MSDN subscriptions with an active spending limit, which
+    # restricts default regional compute quota until raised for that region).
+    [string]$Location = "westeurope",
     [string]$AppServicePlan = "mediagenstudio-plan",
     [string]$WebAppName = "mediagenstudio-$((Get-Random -Minimum 1000 -Maximum 9999))",
     [string]$Sku = "F1"

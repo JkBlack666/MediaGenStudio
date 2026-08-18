@@ -3,6 +3,7 @@ and MiniMax-H3 (video) generation.
 
 Run with: python server.py
 """
+
 from pathlib import Path
 from typing import Optional
 
@@ -29,18 +30,26 @@ def index():
 
 @app.get("/api/status")
 def status():
-    info = {"torch_available": False, "cuda_available": False, "gpu_count": 0, "gpus": []}
+    info = {
+        "torch_available": False,
+        "cuda_available": False,
+        "gpu_count": 0,
+        "gpus": [],
+    }
     try:
         import torch
+
         info["torch_available"] = True
         info["cuda_available"] = torch.cuda.is_available()
         info["gpu_count"] = torch.cuda.device_count() if info["cuda_available"] else 0
         for i in range(info["gpu_count"]):
             props = torch.cuda.get_device_properties(i)
-            info["gpus"].append({
-                "name": props.name,
-                "vram_gb": round(props.total_memory / (1024 ** 3), 1),
-            })
+            info["gpus"].append(
+                {
+                    "name": props.name,
+                    "vram_gb": round(props.total_memory / (1024**3), 1),
+                }
+            )
     except ImportError:
         pass
     hw = config_module.resolve_hardware(config_module.load_config())
@@ -61,6 +70,7 @@ def set_config(cfg: dict):
 # ---------------------------------------------------------------------------
 # Image generation (Krea / FLUX)
 # ---------------------------------------------------------------------------
+
 
 class ImageGenerateRequest(BaseModel):
     prompt: str
@@ -85,6 +95,7 @@ def image_generate(req: ImageGenerateRequest):
 # ---------------------------------------------------------------------------
 # Video generation (MiniMax-H3)
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/video/generate")
 async def video_generate(
@@ -140,12 +151,15 @@ def delete_job(job_id: str):
 # Background workers
 # ---------------------------------------------------------------------------
 
+
 def _run_image_job(job):
     params = job["params"]
     cfg = config_module.load_config()
 
     def progress_cb(step, total):
-        jobs.update_job(job["id"], progress=int(step / total * 100), message=f"Step {step}/{total}")
+        jobs.update_job(
+            job["id"], progress=int(step / total * 100), message=f"Step {step}/{total}"
+        )
 
     def log(msg):
         jobs.update_job(job["id"], message=msg)
@@ -164,8 +178,13 @@ def _run_image_job(job):
     )
     out_name = f"{job['id']}.png"
     image.save(jobs.OUTPUT_DIR / out_name)
-    jobs.update_job(job["id"], status="done", progress=100, message="Done",
-                     result={"type": "image", "url": f"/outputs/{out_name}"})
+    jobs.update_job(
+        job["id"],
+        status="done",
+        progress=100,
+        message="Done",
+        result={"type": "image", "url": f"/outputs/{out_name}"},
+    )
 
 
 def _run_video_job(job):
@@ -174,7 +193,9 @@ def _run_video_job(job):
     backend = params.get("backend") or cfg["video_model"].get("backend", "comfyui")
 
     def progress_cb(step, total):
-        jobs.update_job(job["id"], progress=int(step / total * 100), message=f"{step}/{total}")
+        jobs.update_job(
+            job["id"], progress=int(step / total * 100), message=f"{step}/{total}"
+        )
 
     def log(msg):
         jobs.update_job(job["id"], message=msg)
@@ -192,8 +213,13 @@ def _run_video_job(job):
         )
         out_name = f"{job['id']}.mp4"
         (jobs.OUTPUT_DIR / out_name).write_bytes(video_bytes)
-        jobs.update_job(job["id"], status="done", progress=100, message="Done (local ComfyUI)",
-                         result={"type": "video", "url": f"/outputs/{out_name}"})
+        jobs.update_job(
+            job["id"],
+            status="done",
+            progress=100,
+            message="Done (local ComfyUI)",
+            result={"type": "video", "url": f"/outputs/{out_name}"},
+        )
     elif backend == "api":
         image_b64 = None
         if params.get("image_path"):
@@ -208,23 +234,47 @@ def _run_video_job(job):
             log=log,
             progress_cb=progress_cb,
         )
-        jobs.update_job(job["id"], status="done", progress=100, message="Done (MiniMax cloud API)",
-                         result={"type": "video", "url": url})
+        jobs.update_job(
+            job["id"],
+            status="done",
+            progress=100,
+            message="Done (MiniMax cloud API)",
+            result={"type": "video", "url": url},
+        )
     else:
         from PIL import Image
+
         image = Image.open(params["image_path"]) if params.get("image_path") else None
         output = video_h3.generate_local(
-            cfg, prompt=params["prompt"], image=image,
-            duration=params.get("duration", 6), seed=params.get("seed"),
-            log=log, progress_cb=progress_cb,
+            cfg,
+            prompt=params["prompt"],
+            image=image,
+            duration=params.get("duration", 6),
+            seed=params.get("seed"),
+            log=log,
+            progress_cb=progress_cb,
         )
         out_name = f"{job['id']}.mp4"
         out_path = jobs.OUTPUT_DIR / out_name
         import imageio
+
         frames = getattr(output, "frames", output)
-        imageio.mimsave(str(out_path), frames[0] if isinstance(frames, (list, tuple)) and len(frames) == 1 else frames, fps=24)
-        jobs.update_job(job["id"], status="done", progress=100, message="Done (local diffusers)",
-                         result={"type": "video", "url": f"/outputs/{out_name}"})
+        imageio.mimsave(
+            str(out_path),
+            (
+                frames[0]
+                if isinstance(frames, (list, tuple)) and len(frames) == 1
+                else frames
+            ),
+            fps=24,
+        )
+        jobs.update_job(
+            job["id"],
+            status="done",
+            progress=100,
+            message="Done (local diffusers)",
+            result={"type": "video", "url": f"/outputs/{out_name}"},
+        )
 
 
 jobs.register_worker("image", _run_image_job)
@@ -234,4 +284,5 @@ jobs.start_worker()
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="127.0.0.1", port=7860)

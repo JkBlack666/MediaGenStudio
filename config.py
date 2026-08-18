@@ -3,6 +3,7 @@
 config.json (gitignored, holds local machine settings) is created from
 config.example.json on first run if missing, then merged over defaults.
 """
+
 import json
 import copy
 from pathlib import Path
@@ -63,6 +64,7 @@ def resolve_hardware(cfg):
     """
     try:
         import torch
+
         cuda_available = torch.cuda.is_available()
     except ImportError:
         cuda_available = False
@@ -80,7 +82,12 @@ def resolve_hardware(cfg):
         # cpu_offload only makes sense when shuttling layers to/from a GPU.
         offload = "model" if device == "cuda" else "none"
 
-    return {"device": device, "dtype_name": dtype_name, "offload": offload, "cuda_available": cuda_available}
+    return {
+        "device": device,
+        "dtype_name": dtype_name,
+        "offload": offload,
+        "cuda_available": cuda_available,
+    }
 
 
 def _deep_merge(base, override):
@@ -97,7 +104,9 @@ def _ensure_config_file():
     if CONFIG_FILE.exists():
         return
     if EXAMPLE_FILE.exists():
-        CONFIG_FILE.write_text(EXAMPLE_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+        CONFIG_FILE.write_text(
+            EXAMPLE_FILE.read_text(encoding="utf-8"), encoding="utf-8"
+        )
     else:
         CONFIG_FILE.write_text(json.dumps(DEFAULTS, indent=2), encoding="utf-8")
 
