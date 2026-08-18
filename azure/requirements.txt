@@ -1,0 +1,20 @@
+# Lightweight dependencies for the Azure App Service deployment.
+#
+# Deliberately EXCLUDES torch/diffusers/transformers/accelerate/sentencepiece/
+# imageio* - those are only needed for local GPU model inference, which the
+# cheapest App Service tiers (F1/B1, CPU-only, small disk quota) can't usefully
+# run anyway. The app already handles missing torch/diffusers gracefully
+# (clean "not installed" errors instead of crashing), so this keeps the
+# deployed app small, fast to build, and within the free tier's ~1GB quota.
+#
+# The MiniMax hosted "api" video backend still works here (only needs
+# `requests`) if you set a MINIMAX_API_KEY app setting. Local Krea 2/ComfyUI
+# generation requires a separate GPU machine - point the deployed app's
+# Settings > ComfyUI URL at one if you have it reachable.
+fastapi
+uvicorn[standard]
+gunicorn
+python-multipart
+pydantic
+pillow
+requests

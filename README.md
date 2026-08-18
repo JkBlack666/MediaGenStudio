@@ -138,3 +138,30 @@ Open http://127.0.0.1:7860 in your browser.
   memory afterward (avoids reloading 12B/33B weights per request).
 - Only one generation job runs at a time (single background worker) to avoid
   GPU contention.
+
+## Deploying to Azure (cheapest tier)
+
+`azure/deploy.ps1` deploys just the GUI/API to an Azure App Service **Free F1**
+plan (Linux, Python 3.11) - the cheapest option, $0/month. This is a genuine
+tradeoff: App Service has **no GPU**, so local Krea 2 / ComfyUI-driven H3
+generation cannot run there. What you get is the web app itself, reachable
+from anywhere, with the MiniMax hosted-API video fallback available if you set
+`MINIMAX_API_KEY`. The deployment intentionally skips installing
+torch/diffusers/transformers (see `azure/requirements.txt`) since the free/basic
+tiers can't usefully run them anyway - image/local-video generation will show
+the same clean "not installed"/"can't reach ComfyUI" errors as on any other
+machine without a GPU, pointing you at `Settings > ComfyUI URL` if you want to
+wire the deployed app up to a GPU machine you run elsewhere.
+
+```powershell
+az login   # sign in with the Azure account that should own the resources
+./azure/deploy.ps1
+```
+
+Optional parameters: `-ResourceGroup`, `-Location`, `-WebAppName`, `-Sku` (e.g.
+`-Sku B1` for the cheapest *paid* tier - has "Always On" so the background job
+worker doesn't get recycled during idle periods, unlike F1 which can unload the
+app after ~20 minutes of no traffic).
+
+To tear everything down: `az group delete --name mediagenstudio-rg --yes --no-wait`.
+
