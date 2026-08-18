@@ -1,0 +1,20 @@
+{
+  "device": "auto",
+  "dtype": "auto",
+  "hf_token": "",
+  "image_model": {
+    "repo_id": "black-forest-labs/FLUX.1-Krea-dev",
+    "local_path": "",
+    "offload": "auto"
+  },
+  "video_model": {
+    "repo_id": "MiniMaxAI/MiniMax-H3",
+    "local_path": "",
+    "variant": "FL2VA",
+    "backend": "api"
+  },
+  "minimax_api": {
+    "base_url": "https://api.minimax.io",
+    "api_key_env": "MINIMAX_API_KEY"
+  }
+}

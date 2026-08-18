@@ -1,0 +1,23 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+torch
+diffusers>=0.31.0
+transformers
+accelerate
+safetensors
+sentencepiece
+pillow
+imageio
+imageio-ffmpeg
+numpy
+requests
+
+# `pip install -r requirements.txt` installs a working CPU build of torch by
+# default. If you have an NVIDIA GPU and want CUDA acceleration instead,
+# install torch separately for your CUDA version *before* this file, e.g.:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124
+# (on some corporate/locked-down networks that custom index can fail TLS
+# handshakes even though the default PyPI index works fine - if so just use
+# the plain `pip install torch` CPU build).
