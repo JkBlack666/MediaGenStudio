@@ -18,35 +18,52 @@ Both models are large:
 
 - Krea (FLUX) needs ~12B params in memory. A single consumer GPU with 16-24GB VRAM
   works with `enable_model_cpu_offload()` (slower). 8GB+ can work with sequential
-  offload, much slower.
-- MiniMax-H3 is 33B params and its own model card recommends **4 GPUs** for
-  local inference via SGLang/vLLM. Running it on a single consumer GPU is not
-  realistic today. Local diffusers support for H3 is also brand new/bleeding-edge
-  and may change or fail depending on your installed `diffusers` version.
+  offload, much slower. This runs through the standard `diffusers` `FluxPipeline` -
+  genuinely local, no cloud call involved.
+- MiniMax-H3 is 33B params. Its model card recommends **4 GPUs** for full-precision
+  SGLang/vLLM serving, but ComfyUI ships official **quantized** checkpoints
+  (int8/fp8) plus a turbo LoRA specifically so it can run on a single well-specced
+  consumer GPU (see [Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)).
+  You still need a real GPU with substantial VRAM - this is not something that runs
+  usefully on CPU-only hardware.
 
-Because of this, the app supports two paths for video:
+### How video generation actually runs locally
 
-1. **Local diffusers** (`backend: "diffusers"`) — attempts real local inference.
-   Experimental; needs the exact hardware above and a very recent `diffusers`.
-2. **MiniMax hosted API** (`backend: "api"`) — calls MiniMax's official cloud API
-   as a practical fallback so the app is actually usable without a multi-GPU rig.
-   Requires a `MINIMAX_API_KEY`. Endpoint paths are taken from MiniMax's public
-   docs (`platform.minimax.io`); verify request/response fields against your
-   account's API docs before relying on it, since MiniMax may adjust the schema.
+The public `diffusers` package has **no MiniMax-H3 pipeline support in any release
+yet** (confirmed against 0.39.0, the latest on PyPI as of this writing) - despite
+the model card's diffusers code snippet. The `MiniMaxH3ImageToVideo` node the
+model card references only exists inside **ComfyUI itself** (merged in
+[ComfyUI#15224](https://github.com/Comfy-Org/ComfyUI/pull/15224)).
 
-For a more mature local UI for these models, the ComfyUI workflow templates
-linked from the model cards ([Krea ComfyUI](https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev),
-[H3 ComfyUI](https://huggingface.co/Comfy-Org/MiniMax-H3)) are the officially
-recommended path — this app is a lightweight custom alternative with its own GUI.
+So the app's video backends are:
+
+1. **`comfyui` (default)** - genuinely local. The app drives a **ComfyUI server
+   running on your own machine/GPU** over HTTP (`/prompt`, `/history`, `/view`),
+   using the same node graph as ComfyUI's official H3 workflow templates. No
+   cloud API call is made by this backend at all. Requires you to install
+   ComfyUI and the H3 model files yourself (see Setup below) and have it running
+   before you click Generate.
+2. **`api`** - MiniMax's hosted cloud API. Explicitly **not local** - a practical
+   fallback if you don't have a GPU. Requires `MINIMAX_API_KEY`.
+3. **`diffusers`** - kept for when/if `diffusers` adds real H3 support upstream;
+   currently fails with a clear message since that support doesn't exist yet.
 
 ## ✅ What's verified working
 
-On a CPU-only test machine (no GPU, no Hugging Face account) the full app was
-verified end-to-end: server boot, GUI, job queue/progress polling, and a real
-generation run through `FluxPipeline` (using a tiny public FLUX-compatible test
-model as a stand-in, since the real Krea/H3 weights are gated - see below).
-Device/dtype/CPU-offload settings auto-detect from your actual hardware
-(`"auto"` in config), so the app no longer assumes a CUDA GPU is present.
+- **Image (Krea/FLUX):** verified end-to-end on a CPU-only test machine (no GPU,
+  no Hugging Face account) - server boot, GUI, job queue/progress polling, and a
+  real generation run through `FluxPipeline` (using a tiny public FLUX-compatible
+  test model as a stand-in, since the real Krea weights are gated - see below).
+  Device/dtype/CPU-offload settings auto-detect from your actual hardware.
+- **Video (H3) `comfyui` backend:** the node graph this app builds
+  (`MiniMaxH3ImageToVideo` with `clip`/`vae`/`prompt`/`width`/`height`/`length`/
+  `first_frame`/`last_frame` inputs, wired through `BasicGuider` →
+  `SamplerCustomAdvanced` → `VAEDecode`/`VAEDecodeAudio` → `CreateVideo` →
+  `SaveVideo`) was checked line-by-line against ComfyUI's actual node source
+  (`comfy_extras/nodes_minimax_h3.py`) and matches exactly. A live end-to-end run
+  wasn't done on this machine since it has no GPU at all (a Hyper-V/AVD virtual
+  display only) - installing and running ComfyUI itself needs a real GPU to be
+  useful. The "ComfyUI not reachable" and job-error paths were verified for real.
 
 What's blocked on your action, not a bug:
 
@@ -54,12 +71,9 @@ What's blocked on your action, not a bug:
   Face account or click "agree" to a license on your behalf - only you can do
   that. Once you do (steps below) and paste a token into Settings, the exact
   same code path that was verified above will download and run the real models.
-- **H3's local `diffusers` support is bleeding-edge.** As of testing,
-  `diffusers` 0.39.0 from PyPI does not yet have the `MiniMaxH3ModularPipeline`
-  class the model card's snippet references - you'll see a clear error
-  pointing you to `pip install -U diffusers` (possibly the git version) or to
-  switch to the `api` backend / ComfyUI. This may resolve itself as `diffusers`
-  releases catch up.
+- **The `comfyui` backend needs ComfyUI installed and running with the H3 model
+  files** in place (see Setup) - the app is a client that drives it, not a
+  replacement for it.
 - **MiniMax hosted API backend needs your own API key** from
   [platform.minimax.io](https://platform.minimax.io) (`MINIMAX_API_KEY` env var).
 
@@ -84,9 +98,16 @@ can do (it requires your own identity/account, an agent can't do it for you):
 4. Paste it into the app's Settings tab (or set an `HF_TOKEN` env var / run
    `huggingface-cli login`).
 
-For the video hosted-API fallback, sign up at
+For local video generation (the default `comfyui` backend), install
+[ComfyUI](https://github.com/comfyanonymous/ComfyUI) separately, download the
+model files listed on [Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)
+into ComfyUI's `models/` folders, and start it (`python main.py`) before
+generating video - the app's Settings tab lets you point at a non-default
+ComfyUI URL/port and change which model filenames it requests.
+
+For the video hosted-API fallback instead, sign up at
 [platform.minimax.io](https://platform.minimax.io) and set the resulting key as
-`MINIMAX_API_KEY` in your environment.
+`MINIMAX_API_KEY` in your environment, then switch the backend to `api`.
 
 Copy `config.example.json` to `config.json` and adjust model paths/device as
 needed (or just let the app create it on first run with defaults - `"auto"`

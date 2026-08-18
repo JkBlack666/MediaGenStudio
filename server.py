@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 import config as config_module
 import jobs
-from engines import image_krea, video_h3
+from engines import image_krea, video_h3, video_h3_comfyui
 
 BASE_DIR = Path(__file__).parent
 
@@ -169,7 +169,7 @@ def _run_image_job(job):
 def _run_video_job(job):
     params = job["params"]
     cfg = config_module.load_config()
-    backend = params.get("backend") or cfg["video_model"].get("backend", "api")
+    backend = params.get("backend") or cfg["video_model"].get("backend", "comfyui")
 
     def progress_cb(step, total):
         jobs.update_job(job["id"], progress=int(step / total * 100), message=f"{step}/{total}")
@@ -177,7 +177,22 @@ def _run_video_job(job):
     def log(msg):
         jobs.update_job(job["id"], message=msg)
 
-    if backend == "api":
+    if backend == "comfyui":
+        video_bytes = video_h3_comfyui.generate(
+            cfg,
+            prompt=params["prompt"],
+            image_path=params.get("image_path"),
+            duration=params.get("duration", 6),
+            aspect_ratio=params.get("aspect_ratio", "16:9"),
+            seed=params.get("seed"),
+            log=log,
+            progress_cb=progress_cb,
+        )
+        out_name = f"{job['id']}.mp4"
+        (jobs.OUTPUT_DIR / out_name).write_bytes(video_bytes)
+        jobs.update_job(job["id"], status="done", progress=100, message="Done (local ComfyUI)",
+                         result={"type": "video", "url": f"/outputs/{out_name}"})
+    elif backend == "api":
         image_b64 = None
         if params.get("image_path"):
             image_b64 = video_h3.image_path_to_b64(params["image_path"])
@@ -191,7 +206,7 @@ def _run_video_job(job):
             log=log,
             progress_cb=progress_cb,
         )
-        jobs.update_job(job["id"], status="done", progress=100, message="Done (MiniMax API)",
+        jobs.update_job(job["id"], status="done", progress=100, message="Done (MiniMax cloud API)",
                          result={"type": "video", "url": url})
     else:
         from PIL import Image
@@ -206,7 +221,7 @@ def _run_video_job(job):
         import imageio
         frames = getattr(output, "frames", output)
         imageio.mimsave(str(out_path), frames[0] if isinstance(frames, (list, tuple)) and len(frames) == 1 else frames, fps=24)
-        jobs.update_job(job["id"], status="done", progress=100, message="Done (local)",
+        jobs.update_job(job["id"], status="done", progress=100, message="Done (local diffusers)",
                          result={"type": "video", "url": f"/outputs/{out_name}"})
 
 

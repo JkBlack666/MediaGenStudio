@@ -168,6 +168,13 @@ async function loadSettings() {
   form.video_repo_id.value = cfg.video_model.local_path || cfg.video_model.repo_id;
   form.video_variant.value = cfg.video_model.variant;
   form.video_backend.value = cfg.video_model.backend;
+  form.comfyui_url.value = cfg.video_model.comfyui_url || "";
+  form.unet_name.value = cfg.video_model.unet_name || "";
+  form.clip_name.value = cfg.video_model.clip_name || "";
+  form.vae_name.value = cfg.video_model.vae_name || "";
+  form.audio_vae_name.value = cfg.video_model.audio_vae_name || "";
+  form.lora_name.value = cfg.video_model.lora_name || "";
+  form.turbo.checked = !!cfg.video_model.turbo;
   form.minimax_base_url.value = cfg.minimax_api.base_url;
   form.hf_token.value = cfg.hf_token || "";
 }
@@ -179,7 +186,12 @@ $("#settings-form").addEventListener("submit", async (e) => {
   const payload = {
     hf_token: fd.get("hf_token") || "",
     image_model: { repo_id: fd.get("image_repo_id"), offload: fd.get("image_offload") },
-    video_model: { repo_id: fd.get("video_repo_id"), variant: fd.get("video_variant"), backend: fd.get("video_backend") },
+    video_model: {
+      repo_id: fd.get("video_repo_id"), variant: fd.get("video_variant"), backend: fd.get("video_backend"),
+      comfyui_url: fd.get("comfyui_url"), unet_name: fd.get("unet_name"), clip_name: fd.get("clip_name"),
+      vae_name: fd.get("vae_name"), audio_vae_name: fd.get("audio_vae_name"), lora_name: fd.get("lora_name"),
+      turbo: fd.get("turbo") === "on",
+    },
     minimax_api: { base_url: fd.get("minimax_base_url") },
   };
   const res = await fetch("/api/config", {

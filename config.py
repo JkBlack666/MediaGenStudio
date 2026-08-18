@@ -26,7 +26,21 @@ DEFAULTS = {
         "repo_id": "MiniMaxAI/MiniMax-H3",
         "local_path": "",
         "variant": "FL2VA",
-        "backend": "api",
+        # "comfyui": genuinely local, drives a local ComfyUI server (default -
+        # this is the only backend that actually runs H3 on your own machine
+        # today; "diffusers" support for H3 doesn't exist in any public
+        # diffusers release yet, confirmed 2026-08-18 against 0.39.0).
+        # "api": MiniMax's hosted cloud API (not local, needs MINIMAX_API_KEY).
+        "backend": "comfyui",
+        "comfyui_url": "http://127.0.0.1:8188",
+        "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "vae_name": "minimax_h3_video_vae_fp16.safetensors",
+        "audio_vae_name": "minimax_h3_audio_vae_fp32.safetensors",
+        "lora_name": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+        "turbo": True,
+        "steps_full": 20,
+        "steps_turbo": 8,
     },
     "minimax_api": {
         "base_url": "https://api.minimax.io",

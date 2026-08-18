@@ -44,8 +44,10 @@
 
     <section id="tab-video" class="tab-panel">
       <h2>Text/Image → Video+Audio (MiniMax-H3)</h2>
-      <p class="hint">Local diffusers backend for H3 is experimental and needs ~4 GPUs per the model card.
-        The API backend calls MiniMax's hosted service instead (needs an API key set in Settings/env).</p>
+      <p class="hint">Default backend runs H3 100% locally through a ComfyUI server on your machine/GPU
+        (no cloud API call) - install ComfyUI + the model files first (see README/Settings).
+        MiniMax's hosted API is available as a non-local fallback if you don't have a GPU set up.
+        (Local <code>diffusers</code> execution for H3 doesn't exist in any public diffusers release yet.)</p>
       <form id="video-form">
         <label>Prompt
           <textarea name="prompt" rows="3" placeholder="Describe the shot, camera motion, subject, style..." required></textarea>
@@ -65,8 +67,9 @@
           <label>Seed <input type="number" name="seed" placeholder="random" /></label>
           <label>Backend
             <select name="backend">
-              <option value="api">MiniMax API (fallback)</option>
-              <option value="diffusers">Local diffusers (experimental)</option>
+              <option value="comfyui">Local ComfyUI (default - runs on your GPU)</option>
+              <option value="api">MiniMax cloud API (fallback, not local)</option>
+              <option value="diffusers">Local diffusers (currently unsupported)</option>
             </select>
           </label>
         </div>
@@ -114,10 +117,31 @@
           </label>
           <label>Default backend
             <select name="video_backend">
-              <option value="api">api</option>
-              <option value="diffusers">diffusers</option>
+              <option value="comfyui">comfyui (local, default)</option>
+              <option value="api">api (cloud fallback)</option>
+              <option value="diffusers">diffusers (currently unsupported)</option>
             </select>
           </label>
+        </fieldset>
+        <fieldset>
+          <legend>ComfyUI (used by comfyui backend - genuinely local, runs on your GPU)</legend>
+          <p class="hint">Install <a href="https://github.com/comfyanonymous/ComfyUI" target="_blank" rel="noopener">ComfyUI</a>,
+            download the model files listed on
+            <a href="https://huggingface.co/Comfy-Org/MiniMax-H3" target="_blank" rel="noopener">Comfy-Org/MiniMax-H3</a>
+            into ComfyUI's models folders, then start ComfyUI (<code>python main.py</code>) before generating video.</p>
+          <label>ComfyUI server URL
+            <input type="text" name="comfyui_url" placeholder="http://127.0.0.1:8188" />
+          </label>
+          <div class="row">
+            <label>UNET (diffusion model) filename <input type="text" name="unet_name" /></label>
+            <label>CLIP (text encoder) filename <input type="text" name="clip_name" /></label>
+          </div>
+          <div class="row">
+            <label>Video VAE filename <input type="text" name="vae_name" /></label>
+            <label>Audio VAE filename <input type="text" name="audio_vae_name" /></label>
+          </div>
+          <label>Turbo LoRA filename (speeds up generation) <input type="text" name="lora_name" /></label>
+          <label><input type="checkbox" name="turbo" style="width:auto" /> Use turbo LoRA (fewer steps, faster)</label>
         </fieldset>
         <fieldset>
           <legend>MiniMax API (used by API backend)</legend>
