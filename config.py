@@ -18,7 +18,11 @@ DEFAULTS = {
     "dtype": "auto",
     "hf_token": "",
     "image_model": {
-        "repo_id": "black-forest-labs/FLUX.1-Krea-dev",
+        # krea/Krea-2-Turbo is the actual "Krea 2" model (13B, native Krea2Pipeline
+        # support in diffusers>=0.39) - fast, 8-step distilled checkpoint.
+        # Alternatives: "krea/Krea-2-Raw" (52 steps, higher quality, same family)
+        # or "black-forest-labs/FLUX.1-Krea-dev" (a different, FLUX-based model).
+        "repo_id": "krea/Krea-2-Turbo",
         "local_path": "",
         "offload": "auto",
     },

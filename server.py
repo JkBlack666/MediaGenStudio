@@ -67,8 +67,10 @@ class ImageGenerateRequest(BaseModel):
     negative_prompt: Optional[str] = None
     width: int = 1024
     height: int = 1024
-    steps: int = 28
-    guidance_scale: float = 4.5
+    # None = let the engine pick sensible defaults for the configured checkpoint
+    # (Krea 2 Turbo vs Raw vs FLUX.1-Krea-dev each want different steps/guidance).
+    steps: Optional[int] = None
+    guidance_scale: Optional[float] = None
     seed: Optional[int] = None
 
 

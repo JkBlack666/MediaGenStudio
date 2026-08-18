@@ -1,4 +1,12 @@
-"""Local inference engine for FLUX.1 Krea [dev] ("Krea") text-to-image.
+"""Local inference engine for Krea's text-to-image models ("Krea").
+
+Supports two distinct model families:
+  - Krea 2 ("K2") - krea/Krea-2-Turbo or krea/Krea-2-Raw, Krea.ai's own 13B
+    architecture with native `Krea2Pipeline` support in diffusers>=0.39.
+    This is the actual "Krea 2" model and the default here.
+  - FLUX.1 Krea [dev] - black-forest-labs/FLUX.1-Krea-dev, a FLUX fine-tune
+    collaboration between Black Forest Labs and Krea, using `FluxPipeline`.
+    Kept as an alternative repo_id you can set in Settings.
 
 Torch/diffusers are imported lazily so the server can still start (and show a
 clear error in the GUI) on machines without those installed/CUDA available.
@@ -10,6 +18,14 @@ import config as config_module
 _pipeline = None
 _pipeline_lock = threading.Lock()
 _loaded_key = None
+
+
+def _is_krea2(model_path):
+    return "krea-2" in model_path.lower()
+
+
+def _is_turbo(model_path):
+    return "turbo" in model_path.lower()
 
 
 def _pipeline_key(full_cfg):
@@ -54,7 +70,10 @@ def _load_pipeline(full_cfg, log=None):
             return _pipeline
         try:
             import torch
-            from diffusers import FluxPipeline
+            if _is_krea2(full_cfg["image_model"].get("local_path") or full_cfg["image_model"]["repo_id"]):
+                from diffusers import Krea2Pipeline as PipelineClass
+            else:
+                from diffusers import FluxPipeline as PipelineClass
         except ImportError as exc:
             raise RuntimeError(
                 "torch/diffusers are not installed. Run "
@@ -68,10 +87,10 @@ def _load_pipeline(full_cfg, log=None):
         dtype = getattr(torch, hw["dtype_name"], torch.float32)
 
         if log:
-            log(f"Loading Krea (FLUX) weights from '{model_path}' on {hw['device']} "
-                f"({hw['dtype_name']}). First load downloads ~24GB+ and can take a while.")
+            log(f"Loading '{model_path}' ({PipelineClass.__name__}) on {hw['device']} "
+                f"({hw['dtype_name']}). First load downloads several GB+ and can take a while.")
         try:
-            pipe = FluxPipeline.from_pretrained(model_path, torch_dtype=dtype, token=token)
+            pipe = PipelineClass.from_pretrained(model_path, torch_dtype=dtype, token=token)
         except Exception as exc:
             raise _friendly_error(exc, model_path) from exc
 
@@ -88,9 +107,22 @@ def _load_pipeline(full_cfg, log=None):
 
 
 def generate(full_cfg, prompt, negative_prompt=None, width=1024, height=1024,
-             steps=28, guidance_scale=4.5, seed=None, progress_cb=None, log=None):
+             steps=None, guidance_scale=None, seed=None, progress_cb=None, log=None):
     pipe = _load_pipeline(full_cfg, log=log)  # raises a clear RuntimeError if torch/diffusers/auth are missing
     import torch
+
+    img = full_cfg["image_model"]
+    model_path = img.get("local_path") or img["repo_id"]
+    if steps is None or guidance_scale is None:
+        # Sensible per-checkpoint defaults (matching the official model cards).
+        if _is_krea2(model_path) and _is_turbo(model_path):
+            default_steps, default_guidance = 8, 0.0
+        elif _is_krea2(model_path):
+            default_steps, default_guidance = 52, 3.5
+        else:
+            default_steps, default_guidance = 28, 4.5
+        steps = default_steps if steps is None else steps
+        guidance_scale = default_guidance if guidance_scale is None else guidance_scale
 
     generator = torch.Generator(device="cpu")
     if seed is not None:

@@ -3,23 +3,25 @@
 A local web app + GUI for generating images and videos on your own machine using
 two real open-weight models:
 
-- **Image generation:** [`black-forest-labs/FLUX.1-Krea-dev`](https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev)
-  ("Krea") — a 12B-parameter open-weight text-to-image model.
+- **Image generation:** [`krea/Krea-2-Turbo`](https://huggingface.co/krea/Krea-2-Turbo)
+  ("Krea 2" / "K2") — Krea.ai's 13B-parameter open-weight text-to-image model,
+  with native `Krea2Pipeline` support in `diffusers` (>=0.39). The higher-quality,
+  slower base checkpoint [`krea/Krea-2-Raw`](https://huggingface.co/krea/Krea-2-Raw)
+  and the earlier FLUX-based collaboration
+  [`black-forest-labs/FLUX.1-Krea-dev`](https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev)
+  are both supported too - just change the repo id in Settings.
 - **Video generation:** [`MiniMaxAI/MiniMax-H3`](https://huggingface.co/MiniMaxAI/MiniMax-H3)
   ("H3") — a 33B-parameter open-weight text/image-to-video+audio model.
-
-> These are the actual models that best match "Krea" / "MiniMax H3" — there is no
-> "Kolors 2" or separate "Krea 2" model publicly released, so this app targets the
-> real, current open-weight releases from those two teams.
 
 ## ⚠️ Hardware reality check
 
 Both models are large:
 
-- Krea (FLUX) needs ~12B params in memory. A single consumer GPU with 16-24GB VRAM
-  works with `enable_model_cpu_offload()` (slower). 8GB+ can work with sequential
-  offload, much slower. This runs through the standard `diffusers` `FluxPipeline` -
-  genuinely local, no cloud call involved.
+- Krea 2 is 13B params (Turbo/Raw checkpoints). A single consumer GPU with
+  16-24GB VRAM works with `enable_model_cpu_offload()` (slower). 8GB+ can work
+  with sequential offload, much slower. Runs through the native `diffusers`
+  `Krea2Pipeline` (>=0.39) - genuinely local, no cloud call involved. The Turbo
+  checkpoint (8 steps, no CFG) is much faster than Raw (52 steps, CFG 3.5).
 - MiniMax-H3 is 33B params. Its model card recommends **4 GPUs** for full-precision
   SGLang/vLLM serving, but ComfyUI ships official **quantized** checkpoints
   (int8/fp8) plus a turbo LoRA specifically so it can run on a single well-specced
@@ -50,11 +52,16 @@ So the app's video backends are:
 
 ## ✅ What's verified working
 
-- **Image (Krea/FLUX):** verified end-to-end on a CPU-only test machine (no GPU,
-  no Hugging Face account) - server boot, GUI, job queue/progress polling, and a
-  real generation run through `FluxPipeline` (using a tiny public FLUX-compatible
-  test model as a stand-in, since the real Krea weights are gated - see below).
-  Device/dtype/CPU-offload settings auto-detect from your actual hardware.
+- **Image (Krea 2):** the engine's pipeline-selection logic and per-checkpoint
+  defaults (Turbo: 8 steps/no CFG, Raw: 52 steps/CFG 3.5) were implemented against
+  the official model cards; `Krea2Pipeline` was confirmed importable from the
+  installed `diffusers` (no git install needed - it landed in the 0.39.0 stable
+  release). A full end-to-end generation run was verified on a CPU-only test
+  machine (no GPU, no Hugging Face account) using the older `FluxPipeline` path
+  with a tiny public FLUX-compatible test model as a stand-in for the real
+  (gated) weights - server boot, GUI, job queue/progress polling, and image
+  saving all confirmed working through that shared code path. Device/dtype/
+  CPU-offload settings auto-detect from your actual hardware.
 - **Video (H3) `comfyui` backend:** the node graph this app builds
   (`MiniMaxH3ImageToVideo` with `clip`/`vae`/`prompt`/`width`/`height`/`length`/
   `first_frame`/`last_frame` inputs, wired through `BasicGuider` →
@@ -91,8 +98,10 @@ can do (it requires your own identity/account, an agent can't do it for you):
 
 1. Sign in (or sign up, it's free) at [huggingface.co](https://huggingface.co).
 2. Click "Agree and access repository" on the
-   [Krea model page](https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev)
-   and the [H3 model page](https://huggingface.co/MiniMaxAI/MiniMax-H3).
+   [Krea 2 Turbo model page](https://huggingface.co/krea/Krea-2-Turbo) (and/or
+   [Krea 2 Raw](https://huggingface.co/krea/Krea-2-Raw) /
+   [FLUX.1-Krea-dev](https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev)
+   if you want those instead) and the [H3 model page](https://huggingface.co/MiniMaxAI/MiniMax-H3).
 3. Create an access token at
    [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
 4. Paste it into the app's Settings tab (or set an `HF_TOKEN` env var / run

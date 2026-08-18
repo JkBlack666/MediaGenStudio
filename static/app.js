@@ -81,8 +81,8 @@ $("#image-form").addEventListener("submit", async (e) => {
     negative_prompt: fd.get("negative_prompt") || null,
     width: Number(fd.get("width")),
     height: Number(fd.get("height")),
-    steps: Number(fd.get("steps")),
-    guidance_scale: Number(fd.get("guidance_scale")),
+    steps: fd.get("steps") ? Number(fd.get("steps")) : null,
+    guidance_scale: fd.get("guidance_scale") ? Number(fd.get("guidance_scale")) : null,
     seed: fd.get("seed") ? Number(fd.get("seed")) : null,
   };
   submitBtn.disabled = true;
